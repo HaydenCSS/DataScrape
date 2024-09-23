@@ -1,0 +1,110 @@
+const axios = require('axios'); // Import axios for making HTTP requests
+const cheerio = require('cheerio'); // Import cheerio for parsing HTML
+const fs = require('fs'); // Import file system module for file operations
+const path = require('path'); // Import path module for handling file paths
+const url = require('url'); // Import url module for URL resolution
+
+// Get the URL to scrape from command-line arguments
+const inputUrl = process.argv[2]; 
+
+// Get the path to save images from command-line arguments, default to 'data'
+const savePath = process.argv[4] || 'data'; 
+
+// Check if the '-r' flag (for recursion) is included in the command
+const recursive = process.argv.includes('-r'); 
+
+// Find the index of the '-l' flag in the command-line arguments
+const maxDepthIndex = process.argv.indexOf('-l');
+
+// Parse the maximum depth from the command-line argument, default to 5
+const maxDepth = parseInt(process.argv[maxDepthIndex + 1]) || 5; 
+
+// Check if an input URL was provided; if not, display an error and exit
+if (!inputUrl) {
+    console.error('Please provide a URL.');
+    process.exit(1);
+}
+
+// Function to create a directory if it doesn't exist
+function createDirectory(dir) {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true }); // Create nested folders if needed
+    }
+}
+
+// Main function to scrape images from the given URL
+async function scrapeImages(currentUrl, depth = 0) {
+    // Stop recursion if the current depth exceeds the max depth
+    if (depth > maxDepth) return;
+
+    try {
+        // Make an HTTP GET request to the current URL
+        const { data } = await axios.get(currentUrl);
+        const $ = cheerio.load(data); // Load the HTML into cheerio for parsing
+
+        // Find all image elements and download their sources
+        $('img').each((_, img) => {
+            const imgSrc = $(img).attr('src'); // Get the image source URL
+            downloadImage(imgSrc); // Download the image
+        });
+
+        // If the recursive flag is set, find and scrape links
+        if (recursive) {
+            $('a').each((_, link) => {
+                const linkHref = $(link).attr('href'); // Get the link's URL
+                // Only follow valid absolute URLs
+                if (linkHref && linkHref.startsWith('http')) {
+                    scrapeImages(linkHref, depth + 1); // Recursively scrape linked pages
+                }
+            });
+        }
+    } catch (error) {
+        // Log an error if scraping fails
+        console.error(`Failed to scrape ${currentUrl}: ${error.message}`);
+    }
+}
+
+// Function to download images
+async function downloadImage(imgSrc) {
+    // Ensure the image source is a fully qualified URL
+    if (!imgSrc.startsWith('http')) {
+        imgSrc = url.resolve(inputUrl, imgSrc); // Resolve relative URLs to absolute
+    }
+
+    // Get the image name and create the full path for saving
+    const imgName = path.basename(imgSrc);
+    const imgPath = path.join(savePath, imgName); // Save directly in the specified folder
+
+    // Ensure the main save directory exists
+    createDirectory(savePath); 
+
+    try {
+        // Make an HTTP GET request for the image
+        const response = await axios({
+            url: imgSrc,
+            method: 'GET',
+            responseType: 'stream', // Set response type to stream for downloading
+        });
+
+        // Create a writable stream to save the image
+        const writer = fs.createWriteStream(imgPath);
+        response.data.pipe(writer); // Pipe the image data to the writable stream
+
+        // Listen for the finish event to log success
+        writer.on('finish', () => {
+            console.log(`Downloaded: ${imgPath}`);
+        });
+
+        // Listen for errors during writing
+        writer.on('error', (error) => {
+            console.error(`Failed to write image ${imgSrc}: ${error.message}`);
+        });
+    } catch (error) {
+        // Log an error if downloading fails
+        console.error(`Failed to download image ${imgSrc}: ${error.message}`);
+    }
+}
+
+// Start the scraping process
+createDirectory(savePath); // Create the save directory
+scrapeImages(inputUrl); // Begin scraping images from the input URL
