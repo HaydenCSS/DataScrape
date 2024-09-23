@@ -1,0 +1,73 @@
+const axios = require('axios');
+const cheerio = require('cheerio');
+const fs = require('fs');
+const path = require('path');
+
+const url = process.argv[2]; // URL from command-line argument
+const savePath = process.argv[4] || 'data'; // Custom path or default
+const recursive = process.argv.includes('-r'); // Check for recursive flag
+const maxDepth = parseInt(process.argv[process.argv.indexOf('-l') + 1]) || 5; // Set max depth
+
+if (!url) {
+    console.error('Please provide a URL.');
+    process.exit(1);
+}
+
+// Function to create directory if it doesn't exist
+function createDirectory(dir) {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir);
+    }
+}
+
+// Main function to scrape images
+async function scrapeImages(url, depth = 0) {
+    if (depth > maxDepth) return;
+
+    try {
+        const { data } = await axios.get(url);
+        const $ = cheerio.load(data);
+
+        // Find and download images
+        $('img').each((_, img) => {
+            const imgSrc = $(img).attr('src');
+            downloadImage(imgSrc);
+        });
+
+        // Recursively scrape links if -r flag is used
+        if (recursive) {
+            $('a').each((_, link) => {
+                const linkHref = $(link).attr('href');
+                if (linkHref && linkHref.startsWith('http')) {
+                    scrapeImages(linkHref, depth + 1);
+                }
+            });
+        }
+
+    } catch (error) {
+        console.error(`Failed to scrape ${url}: ${error.message}`);
+    }
+}
+
+// Function to download images
+function downloadImage(imgSrc) {
+    const imgName = path.basename(imgSrc);
+    const imgPath = path.join(savePath, imgName);
+
+    axios({
+        url: imgSrc,
+        method: 'GET',
+        responseType: 'stream',
+    })
+    .then(response => {
+        response.data.pipe(fs.createWriteStream(imgPath));
+        console.log(`Downloaded: ${imgPath}`);
+    })
+    .catch(error => {
+        console.error(`Failed to download image ${imgSrc}: ${error.message}`);
+    });
+}
+
+// Start the scraping process
+createDirectory(savePath);
+scrapeImages(url);
