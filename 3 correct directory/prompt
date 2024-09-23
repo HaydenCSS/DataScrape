@@ -1,1 +1,2 @@
 node spider.js https://sites.google.com/42adel.org.au/webscraping/home -r ./data/   
+node spider.js https://en.wikipedia.org/wiki/Wiki -r ./data/   
