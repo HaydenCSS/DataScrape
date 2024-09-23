@@ -1,1 +1,1 @@
-
+node spider.js http://example.com -r -l 3 -p ./data/
