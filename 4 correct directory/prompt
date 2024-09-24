@@ -1,0 +1,1 @@
+node spider.js https://sites.google.com/42adel.org.au/webscraping/home data
