@@ -1,0 +1,42 @@
+const fs = require('fs');
+const exifParser = require('exif-parser');
+const path = require('path');
+
+// Function to extract metadata from an image
+function extractMetadata(imagePath) {
+    try {
+        const buffer = fs.readFileSync(imagePath); // Read the image file into a buffer
+        const parser = exifParser.create(buffer); // Create an EXIF parser
+        const result = parser.parse(); // Parse the EXIF data
+
+        // Display basic attributes
+        console.log(`Metadata for ${path.basename(imagePath)}:`);
+        console.log(`- Date Taken: ${result.tags.DateTimeOriginal || result.tags.DateTime || 'N/A'}`);
+        console.log(`- Camera Make: ${result.tags.Make || 'N/A'}`);
+        console.log(`- Camera Model: ${result.tags.Model || 'N/A'}`);
+        console.log(`- Focal Length: ${result.tags.FocalLength || 'N/A'}`);
+        console.log(`- GPS Latitude: ${result.tags.GPSLatitude || 'N/A'}`);
+        console.log(`- GPS Longitude: ${result.tags.GPSLongitude || 'N/A'}`);
+        console.log('-----------------------------------');
+    } catch (error) {
+        console.error(`Error extracting metadata from ${imagePath}: ${error.message}`);
+    }
+}
+
+// Main function to analyze images
+function analyzeImages(imagePaths) {
+    imagePaths.forEach(imagePath => {
+        extractMetadata(imagePath); // Extract metadata for each image path
+    });
+}
+
+// Get image file paths from command-line arguments
+const imagePaths = process.argv.slice(2); // Get paths from command-line arguments
+
+if (imagePaths.length === 0) {
+    console.error('Please provide image file paths as arguments.');
+    process.exit(1);
+}
+
+// Analyze the provided images
+analyzeImages(imagePaths);
