@@ -1,0 +1,89 @@
+const fs = require('fs');
+const path = require('path');
+const ExifParser = require('exif-parser');
+const sharp = require('sharp');
+
+// Function to extract metadata from images
+async function extractMetadata(imagePath) {
+    try {
+        const ext = path.extname(imagePath).toLowerCase();
+        const imageBuffer = fs.readFileSync(imagePath);
+
+        // Initialize metadata object
+        let metadata = {};
+
+        // Check for JPEG format and try to extract EXIF data
+        if (ext === '.jpg' || ext === '.jpeg') {
+            const parser = ExifParser.create(imageBuffer);
+            const exifData = parser.parse();
+            metadata = {
+                creationDate: exifData.tags.createDate || 'N/A',
+                cameraMake: exifData.tags.Make || 'N/A',
+                cameraModel: exifData.tags.Model || 'N/A',
+                width: exifData.tags.ImageWidth || 'N/A',
+                height: exifData.tags.ImageHeight || 'N/A',
+                focalLength: exifData.tags.FocalLength || 'N/A',
+                exposureTime: exifData.tags.ExposureTime || 'N/A',
+                iso: exifData.tags.ISO || 'N/A',
+                flash: exifData.tags.Flash ? 'Yes' : 'No',
+                gpsLatitude: exifData.tags.GPSLatitude || 'N/A',
+                gpsLongitude: exifData.tags.GPSLongitude || 'N/A',
+                aperture: exifData.tags.FNumber || 'N/A',
+                shutterSpeed: exifData.tags.ShutterSpeedValue || 'N/A',
+                orientation: exifData.tags.Orientation || 'N/A',
+                software: exifData.tags.Software || 'N/A',
+                dateDigitized: exifData.tags.DateTimeDigitized || 'N/A',
+                lensMake: exifData.tags.LensMake || 'N/A',
+                lensModel: exifData.tags.LensModel || 'N/A',
+                artist: exifData.tags.Artist || 'N/A',
+            };
+        } else {
+            // Handle other formats with sharp
+            const sharpMetadata = await sharp(imageBuffer).metadata();
+            metadata = {
+                creationDate: 'N/A', // Creation date may not be available in non-JPEGs
+                cameraMake: 'N/A',
+                cameraModel: 'N/A',
+                width: sharpMetadata.width || 'N/A',
+                height: sharpMetadata.height || 'N/A',
+                format: sharpMetadata.format || 'N/A',
+                orientation: sharpMetadata.orientation || 'N/A',
+            };
+        }
+
+        // Display the extracted metadata
+        console.log(`Metadata for ${path.basename(imagePath)}:`);
+        console.log(`Creation Date: ${metadata.creationDate}`);
+        console.log(`Camera Make: ${metadata.cameraMake}`);
+        console.log(`Camera Model: ${metadata.cameraModel}`);
+        console.log(`Image Width: ${metadata.width}`);
+        console.log(`Image Height: ${metadata.height}`);
+        console.log(`Focal Length: ${metadata.focalLength}`);
+        console.log(`Exposure Time: ${metadata.exposureTime}`);
+        console.log(`ISO Speed: ${metadata.iso}`);
+        console.log(`Flash Used: ${metadata.flash}`);
+        console.log(`GPS Coordinates: ${metadata.gpsLatitude}, ${metadata.gpsLongitude}`);
+        console.log(`Aperture: ${metadata.aperture}`);
+        console.log(`Shutter Speed: ${metadata.shutterSpeed}`);
+        console.log(`Orientation: ${metadata.orientation}`);
+        console.log(`Software: ${metadata.software}`);
+        console.log(`Date Digitized: ${metadata.dateDigitized}`);
+        console.log(`Lens Make: ${metadata.lensMake}`);
+        console.log(`Lens Model: ${metadata.lensModel}`);
+        console.log(`Artist: ${metadata.artist}`);
+        console.log('----------------------------------------');
+    } catch (error) {
+        console.error(`Failed to extract metadata from ${imagePath}: ${error.message}`);
+    }
+}
+
+// Start the metadata extraction process
+const imagePaths = process.argv.slice(2); // Get image paths from command-line arguments
+
+if (imagePaths.length === 0) {
+    console.error('Please provide at least one image file path.');
+    process.exit(1);
+}
+
+// Process each image file
+imagePaths.forEach(extractMetadata);
