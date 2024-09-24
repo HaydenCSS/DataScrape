@@ -1,0 +1,92 @@
+const fs = require('fs');
+const path = require('path');
+const ExifReader = require('exifreader');
+const sharp = require('sharp'); // For reading basic attributes
+
+// Function to read basic image attributes
+async function readBasicAttributes(filePath) {
+    try {
+        const { format, width, height } = await sharp(filePath).metadata();
+        const stats = fs.statSync(filePath); // Get file statistics
+        return {
+            format: format || 'N/A',
+            width: width || 'N/A',
+            height: height || 'N/A',
+            size: stats.size || 'N/A', // File size in bytes
+            creationDate: stats.birthtime || 'N/A', // Creation date
+            lastModifiedDate: stats.mtime || 'N/A', // Last modified date
+        };
+    } catch (error) {
+        console.error(`Error reading basic attributes for ${filePath}:`, error);
+        return { format: 'N/A', width: 'N/A', height: 'N/A', size: 'N/A', creationDate: 'N/A', lastModifiedDate: 'N/A' };
+    }
+}
+
+// Function to read metadata from an image file
+async function readMetadata(filePath) {
+    const imageBuffer = fs.readFileSync(filePath);
+    const tags = ExifReader.load(imageBuffer); // Load EXIF data
+
+    // Read basic attributes
+    const basicAttributes = await readBasicAttributes(filePath);
+
+    // Extract EXIF data and merge it into basicAttributes
+    basicAttributes.colorDepth = tags['BitsPerSample'] ? tags['BitsPerSample'].value.join(', ') : 'N/A';
+    basicAttributes.aspectRatio = basicAttributes.width && basicAttributes.height ? (basicAttributes.width / basicAttributes.height).toFixed(2) : 'N/A';
+    basicAttributes.orientation = tags['Orientation'] ? tags['Orientation'].description : 'N/A';
+    basicAttributes.dpi = tags['XResolution'] && tags['YResolution'] ? `${tags['XResolution'].value} x ${tags['YResolution'].value}` : 'N/A';
+    basicAttributes.cameraMake = tags['Make'] ? tags['Make'].description : 'N/A';
+    basicAttributes.cameraModel = tags['Model'] ? tags['Model'].description : 'N/A';
+    basicAttributes.focalLength = tags['FocalLength'] ? `${tags['FocalLength'].value} mm` : 'N/A';
+    basicAttributes.exposureTime = tags['ExposureTime'] ? `${tags['ExposureTime'].value} seconds` : 'N/A';
+    basicAttributes.isoSpeed = tags['ISOSpeedRatings'] ? tags['ISOSpeedRatings'].value : 'N/A';
+    basicAttributes.flashUsed = tags['Flash'] ? (tags['Flash'].value === 1 ? 'Yes' : 'No') : 'N/A';
+    basicAttributes.gpsCoordinates = tags['GPSLatitude'] && tags['GPSLongitude'] ? `${tags['GPSLatitude'].value}, ${tags['GPSLongitude'].value}` : 'N/A';
+    basicAttributes.aperture = tags['ApertureValue'] ? `f/${tags['ApertureValue'].value}` : 'N/A';
+    basicAttributes.shutterSpeed = tags['ShutterSpeedValue'] ? `${tags['ShutterSpeedValue'].value} seconds` : 'N/A';
+    basicAttributes.software = tags['Software'] ? tags['Software'].description : 'N/A';
+    basicAttributes.lensMake = tags['LensMake'] ? tags['LensMake'].description : 'N/A';
+    basicAttributes.lensModel = tags['LensModel'] ? tags['LensModel'].description : 'N/A';
+    basicAttributes.artist = tags['Artist'] ? tags['Artist'].description : 'N/A';
+
+    // Output the metadata
+    console.log(`Metadata for ${path.basename(filePath)}:`);
+    console.log(`File Name: ${path.basename(filePath)}`);
+    console.log(`File Size: ${basicAttributes.size} bytes`);
+    console.log(`Format: ${basicAttributes.format}`);
+    console.log(`Image Width: ${basicAttributes.width} pixels`);
+    console.log(`Image Height: ${basicAttributes.height} pixels`);
+    console.log(`Creation Date: ${basicAttributes.creationDate}`);
+    console.log(`Last Modified Date: ${basicAttributes.lastModifiedDate}`);
+    console.log(`Color Depth: ${basicAttributes.colorDepth}`);
+    console.log(`Aspect Ratio: ${basicAttributes.aspectRatio}`);
+    console.log(`Orientation: ${basicAttributes.orientation}`);
+    console.log(`DPI: ${basicAttributes.dpi}`);
+    console.log(`Camera Make: ${basicAttributes.cameraMake}`);
+    console.log(`Camera Model: ${basicAttributes.cameraModel}`);
+    console.log(`Focal Length: ${basicAttributes.focalLength}`);
+    console.log(`Exposure Time: ${basicAttributes.exposureTime}`);
+    console.log(`ISO Speed: ${basicAttributes.isoSpeed}`);
+    console.log(`Flash Used: ${basicAttributes.flashUsed}`);
+    console.log(`GPS Coordinates: ${basicAttributes.gpsCoordinates}`);
+    console.log(`Aperture: ${basicAttributes.aperture}`);
+    console.log(`Shutter Speed: ${basicAttributes.shutterSpeed}`);
+    console.log(`Software: ${basicAttributes.software}`);
+    console.log(`Lens Make: ${basicAttributes.lensMake}`);
+    console.log(`Lens Model: ${basicAttributes.lensModel}`);
+    console.log(`Artist: ${basicAttributes.artist}`);
+    console.log('----------------------------------------');
+}
+
+// Main function to handle multiple files
+async function main() {
+    const files = process.argv.slice(2);
+    for (const filePath of files) {
+        await readMetadata(filePath);
+    }
+}
+
+// Execute the main function
+main().catch(error => {
+    console.error('Error:', error);
+});
