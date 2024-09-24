@@ -1,0 +1,74 @@
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
+
+// Get the URL and save path from command-line arguments
+const [inputUrl, savePath = 'data'] = process.argv.slice(2);
+
+// Supported image extensions
+const supportedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg'];
+
+// Function to create a directory if it doesn't exist
+function createDirectory(dir) {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+// Function to determine the image extension from the URL or headers
+async function getImageExtension(url) {
+    const response = await axios.head(url);
+    const contentType = response.headers['content-type'];
+    
+    // Map content types to extensions
+    const typeMap = {
+        'image/jpeg': '.jpg',
+        'image/png': '.png',
+        'image/gif': '.gif',
+        'image/bmp': '.bmp',
+        'image/svg+xml': '.svg',
+    };
+
+    return typeMap[contentType] || '';
+}
+
+// Function to download an image
+async function downloadImage(imgSrc) {
+    try {
+        const imgExtension = await getImageExtension(imgSrc);
+        
+        // Only download if it's a supported extension
+        if (!supportedExtensions.includes(imgExtension)) {
+            console.log(`Skipping unsupported image format: ${imgSrc}`);
+            return;
+        }
+
+        const imgName = path.basename(imgSrc.split('?')[0]); // Keep the original file name without query parameters
+        const imgPath = path.join(savePath, imgName);
+
+        createDirectory(savePath);
+
+        const response = await axios({
+            url: imgSrc.startsWith('http') ? imgSrc : new URL(imgSrc, inputUrl).href,
+            method: 'GET',
+            responseType: 'stream',
+        });
+
+        const writer = fs.createWriteStream(imgPath);
+        response.data.pipe(writer);
+        writer.on('finish', () => console.log(`Downloaded: ${imgPath}`));
+        writer.on('error', (err) => console.error(`Error writing file ${imgPath}: ${err.message}`));
+    } catch (error) {
+        console.error(`Failed to download image ${imgSrc}: ${error.message}`);
+    }
+}
+
+// Start the download process
+(async () => {
+    try {
+        const { data } = await axios.get(inputUrl);
+        // Extract image sources from the HTML data
+        const imgSrcs = data.match(/<img[^>]+src="([^">]+)"/g).map(img => img.match(/src="([^">]+)/)[1]);
+        imgSrcs.forEach(downloadImage);
+    } catch (error) {
+        console.error(`Error fetching URL: ${error.message}`);
+    }
+})();
