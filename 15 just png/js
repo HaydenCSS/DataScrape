@@ -12,6 +12,7 @@ async function extractMetadata(imagePath) {
         // Initialize metadata object
         let metadata = {};
 
+        // Check for JPEG format and try to extract EXIF data
         if (ext === '.jpg' || ext === '.jpeg') {
             const parser = ExifParser.create(imageBuffer);
             const exifData = parser.parse();
@@ -23,10 +24,10 @@ async function extractMetadata(imagePath) {
                 height: exifData.tags.imageHeight || 'N/A',
             };
         } else {
-            // Handle PNG and other formats
+            // Handle other formats with sharp
             const sharpMetadata = await sharp(imageBuffer).metadata();
             metadata = {
-                creationDate: 'N/A', // Creation date not available in PNG
+                creationDate: 'N/A', // Creation date may not be available
                 width: sharpMetadata.width || 'N/A',
                 height: sharpMetadata.height || 'N/A',
                 format: sharpMetadata.format || 'N/A',
@@ -36,8 +37,8 @@ async function extractMetadata(imagePath) {
         // Display the extracted metadata
         console.log(`Metadata for ${path.basename(imagePath)}:`);
         console.log(`Creation Date: ${metadata.creationDate}`);
-        console.log(`Camera Make: ${metadata.cameraMake}`);
-        console.log(`Camera Model: ${metadata.cameraModel}`);
+        console.log(`Camera Make: ${metadata.cameraMake || 'N/A'}`);
+        console.log(`Camera Model: ${metadata.cameraModel || 'N/A'}`);
         console.log(`Image Width: ${metadata.width}`);
         console.log(`Image Height: ${metadata.height}`);
         console.log('----------------------------------------');
@@ -54,5 +55,5 @@ if (imagePaths.length === 0) {
     process.exit(1);
 }
 
+// Process each image file
 imagePaths.forEach(extractMetadata);
-    
