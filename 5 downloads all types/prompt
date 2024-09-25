@@ -1,3 +1,4 @@
 node spider.js https://sites.google.com/42adel.org.au/webscraping/home data
 node spider.js https://en.wikipedia.org/wiki/Weezer data
+node spider.js -r https://en.wikipedia.org/wiki/Weezer 
 
