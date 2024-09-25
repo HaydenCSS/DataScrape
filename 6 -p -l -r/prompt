@@ -1,5 +1,5 @@
 node spider.js -r https://en.wikipedia.org/wiki/Weezer
 node spider.js -r https://sites.google.com/42adel.org.au/webscraping
 
-node spider.js -r -l 3 -p ./data https://en.wikipedia.org/wiki/Weezer
+node spider.js -r -l 2 -p ./data https://en.wikipedia.org/wiki/Weezer
 node spider.js -r -l 3 -p ./data https://sites.google.com/42adel.org.au/webscraping
