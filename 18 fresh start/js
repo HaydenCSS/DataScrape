@@ -1,48 +1,73 @@
 const fs = require('fs');
 const path = require('path');
-const exifParser = require('exif-parser');
+const ExifReader = require('exifreader');
+const sharp = require('sharp'); // For reading basic attributes
 
-// Allowed image extensions
-const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp'];
-
-// Function to parse and display metadata from an image file
-function parseImageMetadata(imagePath) {
-    const imgExt = path.extname(imagePath).toLowerCase();
-
-    // Check if the file extension is allowed
-    if (!allowedExtensions.includes(imgExt)) {
-        console.log(`Skipping: ${imagePath} (unsupported extension)`);
-        return;
-    }
-
-    // Read the image file
-    const buffer = fs.readFileSync(imagePath);
-    const parser = exifParser.create(buffer);
-    
+// Function to read basic image attributes
+async function readBasicAttributes(filePath) {
     try {
-        const result = parser.parse();
-
-        // Display relevant metadata
-        console.log(`Metadata for: ${imagePath}`);
-        console.log(`Creation Date: ${result.tags.createDate || 'Not available'}`);
-        console.log(`Model: ${result.tags.model || 'Not available'}`);
-        console.log(`Make: ${result.tags.make || 'Not available'}`);
-        console.log(`Focal Length: ${result.tags.focalLength || 'Not available'}`);
-        console.log(`ISO: ${result.tags.iso || 'Not available'}`);
-        console.log('-------------------------------');
+        const { format, width, height } = await sharp(filePath).metadata();
+        const stats = fs.statSync(filePath); // Get file statistics
+        return {
+            format: format || 'N/A',
+            width: width || 'N/A',
+            height: height || 'N/A',
+            size: stats.size || 'N/A', // File size in bytes
+            creationDate: stats.birthtime || 'N/A', // Creation date
+            lastModifiedDate: stats.mtime || 'N/A', // Last modified date
+        };
     } catch (error) {
-        console.error(`Failed to parse metadata for ${imagePath}: ${error.message}`);
+        console.error(`Error reading basic attributes for ${filePath}:`, error);
+        return { format: 'N/A', width: 'N/A', height: 'N/A', size: 'N/A', creationDate: 'N/A', lastModifiedDate: 'N/A' };
     }
 }
 
-// Get the command-line arguments (image file paths)
-const args = process.argv.slice(2);
-if (args.length === 0) {
-    console.log('Please provide at least one image file.');
-    process.exit(1);
+// Function to read metadata from an image file
+async function readMetadata(filePath) {
+    const imageBuffer = fs.readFileSync(filePath);
+    const tags = ExifReader.load(imageBuffer); // Load EXIF data
+
+    // Read basic attributes
+    const basicAttributes = await readBasicAttributes(filePath);
+
+    // Extract EXIF data and merge it into basicAttributes
+    basicAttributes.colorDepth = tags['BitsPerSample'] ? tags['BitsPerSample'].value.join(', ') : 'N/A';
+    basicAttributes.aspectRatio = basicAttributes.width && basicAttributes.height ? (basicAttributes.width / basicAttributes.height).toFixed(2) : 'N/A';
+    basicAttributes.orientation = tags['Orientation'] ? tags['Orientation'].description : 'N/A';
+    basicAttributes.dpi = tags['XResolution'] && tags['YResolution'] ? `${tags['XResolution'].value} x ${tags['YResolution'].value}` : 'N/A';
+    basicAttributes.cameraMake = tags['Make'] ? tags['Make'].description : 'N/A';
+    basicAttributes.cameraModel = tags['Model'] ? tags['Model'].description : 'N/A';
+    
+    basicAttributes.dateTimeOriginal = tags['DateTimeOriginal'] ? tags['DateTimeOriginal'].description : 'N/A'; // Date taken
+
+    // Output the metadata
+    console.log(`Metadata for ${path.basename(filePath)}:`);
+    console.log(`File Name: ${path.basename(filePath)}`);
+    console.log(`File Size: ${basicAttributes.size} bytes`);
+    console.log(`Format: ${basicAttributes.format}`);
+    console.log(`Image Width: ${basicAttributes.width} pixels`);
+    console.log(`Image Height: ${basicAttributes.height} pixels`);
+    console.log(`Creation Date: ${basicAttributes.creationDate}`);
+    console.log(`Last Modified Date: ${basicAttributes.lastModifiedDate}`);
+    console.log(`Color Depth: ${basicAttributes.colorDepth}`);
+    console.log(`Aspect Ratio: ${basicAttributes.aspectRatio}`);
+    console.log(`Orientation: ${basicAttributes.orientation}`);
+    console.log(`DPI: ${basicAttributes.dpi}`);
+    console.log(`Camera Make: ${basicAttributes.cameraMake}`);
+    console.log(`Camera Model: ${basicAttributes.cameraModel}`);
+    console.log(`Date Taken: ${basicAttributes.dateTimeOriginal}`);
+    console.log('----------------------------------------');
 }
 
-// Parse metadata for each provided image file
-args.forEach(imagePath => {
-    parseImageMetadata(imagePath);
+// Main function to handle multiple files
+async function main() {
+    const files = process.argv.slice(2);
+    for (const filePath of files) {
+        await readMetadata(filePath);
+    }
+}
+
+// Execute the main function
+main().catch(error => {
+    console.error('Error:', error);
 });
