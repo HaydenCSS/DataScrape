@@ -3,3 +3,5 @@ node spider.js -r -l 2 https://en.wikipedia.org/wiki/Weezer
 
 node spider.js https://en.wikipedia.org/wiki/Weezer
 node spider.js https://sites.google.com/42adel.org.au/webscraping
+
+node spider.js -r -l 2 /Users/42adel-dp-137/Desktop/Everything/project/index.html
