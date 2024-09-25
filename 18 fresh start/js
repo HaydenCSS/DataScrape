@@ -1,0 +1,48 @@
+const fs = require('fs');
+const path = require('path');
+const exifParser = require('exif-parser');
+
+// Allowed image extensions
+const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp'];
+
+// Function to parse and display metadata from an image file
+function parseImageMetadata(imagePath) {
+    const imgExt = path.extname(imagePath).toLowerCase();
+
+    // Check if the file extension is allowed
+    if (!allowedExtensions.includes(imgExt)) {
+        console.log(`Skipping: ${imagePath} (unsupported extension)`);
+        return;
+    }
+
+    // Read the image file
+    const buffer = fs.readFileSync(imagePath);
+    const parser = exifParser.create(buffer);
+    
+    try {
+        const result = parser.parse();
+
+        // Display relevant metadata
+        console.log(`Metadata for: ${imagePath}`);
+        console.log(`Creation Date: ${result.tags.createDate || 'Not available'}`);
+        console.log(`Model: ${result.tags.model || 'Not available'}`);
+        console.log(`Make: ${result.tags.make || 'Not available'}`);
+        console.log(`Focal Length: ${result.tags.focalLength || 'Not available'}`);
+        console.log(`ISO: ${result.tags.iso || 'Not available'}`);
+        console.log('-------------------------------');
+    } catch (error) {
+        console.error(`Failed to parse metadata for ${imagePath}: ${error.message}`);
+    }
+}
+
+// Get the command-line arguments (image file paths)
+const args = process.argv.slice(2);
+if (args.length === 0) {
+    console.log('Please provide at least one image file.');
+    process.exit(1);
+}
+
+// Parse metadata for each provided image file
+args.forEach(imagePath => {
+    parseImageMetadata(imagePath);
+});
