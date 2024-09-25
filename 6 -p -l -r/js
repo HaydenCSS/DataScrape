@@ -10,7 +10,6 @@ const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp'];
 const args = process.argv.slice(2);
 const inputUrl = args.includes('-r') ? args[args.length - 1] : args[0];
 const savePath = args.includes('-p') ? args[args.indexOf('-p') + 1] : 'data';
-const maxDepth = args.includes('-l') ? parseInt(args[args.indexOf('-l') + 1], 10) : 5;
 
 // Create directory if it doesn't exist
 function createDirectory(dir) {
@@ -47,9 +46,7 @@ async function downloadImage(imgSrc) {
 }
 
 // Function to fetch and process a URL
-async function processPage(pageUrl, currentDepth) {
-    if (currentDepth > maxDepth) return;
-
+async function processPage(pageUrl) {
     try {
         const { data } = await axios.get(pageUrl);
         
@@ -62,7 +59,7 @@ async function processPage(pageUrl, currentDepth) {
             const links = data.match(/<a[^>]+href="([^">]+)"/g)?.map(link => link.match(/href="([^">]+)/)[1]) || [];
             for (const link of links) {
                 const nextUrl = url.resolve(pageUrl, link);
-                await processPage(nextUrl, currentDepth + 1);
+                await processPage(nextUrl); // No depth limit
             }
         }
     } catch (error) {
@@ -72,6 +69,5 @@ async function processPage(pageUrl, currentDepth) {
 
 // Start the process
 (async () => {
-    await processPage(inputUrl, 0);
+    await processPage(inputUrl);
 })();
-s
