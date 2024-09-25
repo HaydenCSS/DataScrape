@@ -1,0 +1,77 @@
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
+const url = require('url');
+
+// Allowed image extensions
+const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp'];
+
+// Get the command-line arguments
+const args = process.argv.slice(2);
+const inputUrl = args.includes('-r') ? args[args.length - 1] : args[0];
+const savePath = args.includes('-p') ? args[args.indexOf('-p') + 1] : 'data';
+const maxDepth = args.includes('-l') ? parseInt(args[args.indexOf('-l') + 1], 10) : 5;
+
+// Create directory if it doesn't exist
+function createDirectory(dir) {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+// Function to download an image
+async function downloadImage(imgSrc) {
+    const imgName = path.basename(imgSrc);
+    const imgExt = path.extname(imgName).toLowerCase();
+    
+    // Only download if the file extension is allowed
+    if (!allowedExtensions.includes(imgExt)) {
+        console.log(`Skipping: ${imgSrc} (unsupported extension)`);
+        return;
+    }
+
+    const imgPath = path.join(savePath, imgName);
+    createDirectory(savePath);
+
+    try {
+        const response = await axios({
+            url: imgSrc.startsWith('http') ? imgSrc : new URL(imgSrc, inputUrl).href,
+            method: 'GET',
+            responseType: 'stream',
+        });
+
+        const writer = fs.createWriteStream(imgPath);
+        response.data.pipe(writer);
+        writer.on('finish', () => console.log(`Downloaded: ${imgPath}`));
+    } catch (error) {
+        console.error(`Failed to download image ${imgSrc}: ${error.message}`);
+    }
+}
+
+// Function to fetch and process a URL
+async function processPage(pageUrl, currentDepth) {
+    if (currentDepth > maxDepth) return;
+
+    try {
+        const { data } = await axios.get(pageUrl);
+        
+        // Extract and download images
+        const imgSrcs = data.match(/<img[^>]+src="([^">]+)"/g)?.map(img => img.match(/src="([^">]+)/)[1]) || [];
+        imgSrcs.forEach(downloadImage);
+        
+        // Recursively process linked pages (if recursion is enabled)
+        if (args.includes('-r')) {
+            const links = data.match(/<a[^>]+href="([^">]+)"/g)?.map(link => link.match(/href="([^">]+)/)[1]) || [];
+            for (const link of links) {
+                const nextUrl = url.resolve(pageUrl, link);
+                await processPage(nextUrl, currentDepth + 1);
+            }
+        }
+    } catch (error) {
+        console.error(`Error processing URL ${pageUrl}: ${error.message}`);
+    }
+}
+
+// Start the process
+(async () => {
+    await processPage(inputUrl, 0);
+})();
+s
